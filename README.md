@@ -45,6 +45,27 @@ npm run dev
 - API: `http://localhost:4000`
 - Web: `http://localhost:5173`
 
+## Vercel Deployment
+
+This repo is deployed as one Vercel project:
+
+- `packages/web` is the Vite frontend.
+- `packages/api` is the Express API source.
+- `api/[...path].ts` is only the Vercel adapter that forwards `/api/*` requests into the Express app.
+
+Use the repo root as the Vercel root directory. The included `vercel.json` builds the web app and serves API routes from the adapter.
+
+Recommended Vercel environment variables:
+
+```bash
+NODE_ENV=production
+ADMIN_TOKEN=change-me-admin-token
+WEBHOOK_SECRET=change-me-webhook-secret
+CORS_ORIGIN=https://your-vercel-domain.vercel.app
+```
+
+`DATA_FILE` defaults to `/tmp/store.json` on Vercel so the seed store can initialize in a writable location. This is enough for demos and smoke tests, but production should use a real database.
+
 ## Quality Commands
 
 ```bash

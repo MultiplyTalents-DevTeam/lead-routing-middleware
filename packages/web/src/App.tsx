@@ -416,7 +416,7 @@ function App() {
   }
 
   if (!draft) {
-    return <div className="screen-center">No config found. Seed data should load automatically.</div>;
+    return <div className="screen-center">{status || "No config found. Seed data should load automatically."}</div>;
   }
 
   return (
