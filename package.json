@@ -1,0 +1,22 @@
+{
+  "name": "middleware-app",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @mt/api\" \"npm run dev -w @mt/web\"",
+    "dev:api": "npm run dev -w @mt/api",
+    "dev:web": "npm run dev -w @mt/web",
+    "build": "npm run build -w @mt/api && npm run build -w @mt/web",
+    "lint": "npm run lint -w @mt/api && npm run lint -w @mt/web",
+    "test": "npm run test -w @mt/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

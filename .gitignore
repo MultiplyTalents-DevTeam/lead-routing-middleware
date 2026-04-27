@@ -1,0 +1,9 @@
+node_modules/
+dist/
+**/dist/
+**/.vite/
+.env
+.env.*
+*.log
+packages/api/data/*.json
+!packages/api/data/.gitkeep
