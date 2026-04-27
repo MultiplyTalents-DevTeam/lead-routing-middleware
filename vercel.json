@@ -2,6 +2,11 @@
   "installCommand": "npm install --include=dev",
   "buildCommand": "npm run build",
   "outputDirectory": "packages/web/dist",
+  "functions": {
+    "api/[...path].ts": {
+      "includeFiles": "packages/api/dist/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
