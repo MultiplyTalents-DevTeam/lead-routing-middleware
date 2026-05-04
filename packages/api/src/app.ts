@@ -28,13 +28,17 @@ export function createApp(deps: AppDependencies): express.Express {
     })
   );
 
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN,
-      methods: ["GET", "POST", "PUT", "DELETE"],
-      allowedHeaders: ["Content-Type", "x-admin-token", "x-webhook-secret", "x-idempotency-key"]
-    })
-  );
+  const adminCors = cors({
+    origin: env.CORS_ORIGIN,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "x-admin-token", "x-webhook-secret", "x-idempotency-key"]
+  });
+
+  const webhookCors = cors({
+    origin: "*",
+    methods: ["POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "x-webhook-secret", "x-idempotency-key"]
+  });
 
   app.use(express.json({ limit: "1mb" }));
   app.use((req, _res, next) => {
@@ -53,8 +57,9 @@ export function createApp(deps: AppDependencies): express.Express {
   );
 
   app.use("/api", healthRouter());
-  app.use("/api", configsRouter(deps.store));
-  app.use("/api", routeDecisionRouter(deps.store));
+  app.use("/api", adminCors, configsRouter(deps.store));
+  app.use("/api", adminCors, routeDecisionRouter(deps.store));
+  app.use("/api/webhooks", webhookCors);
   app.use("/api", webhooksRouter(deps.store, deps.ghlClient));
 
   app.use((req, res) => {
