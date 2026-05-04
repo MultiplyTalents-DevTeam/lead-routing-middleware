@@ -9,7 +9,14 @@ interface LeadUpsertInput {
   email?: string;
   phone?: string;
   source: string;
+  serviceRequested?: string;
+  zip?: string;
+  externalLeadId?: string;
   routedCalendarId?: string;
+  pipelineId?: string;
+  pipelineStageId?: string;
+  opportunityName?: string;
+  monetaryValue?: number;
   metadata: Record<string, unknown>;
 }
 
@@ -25,6 +32,81 @@ export interface GhlActionResult {
   contactId: string;
   opportunityId: string;
   details: Record<string, unknown>;
+}
+
+interface GhlContactResponse {
+  contact?: {
+    id?: string;
+    contactId?: string;
+  };
+  id?: string;
+  contactId?: string;
+}
+
+interface GhlOpportunityResponse {
+  opportunity?: {
+    id?: string;
+    opportunityId?: string;
+  };
+  id?: string;
+  opportunityId?: string;
+}
+
+interface GhlCustomField {
+  id: string;
+  value: unknown;
+}
+
+function compactPayload(input: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined && value !== null));
+}
+
+function readMetadataString(metadata: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function addCustomField(fields: GhlCustomField[], id: string | undefined, value: unknown): void {
+  if (!id || value === undefined || value === null || value === "") {
+    return;
+  }
+
+  fields.push({ id, value });
+}
+
+function buildLeadCustomFields(input: LeadUpsertInput): GhlCustomField[] {
+  const fields: GhlCustomField[] = [];
+  const serviceRequested =
+    input.serviceRequested ?? readMetadataString(input.metadata, ["serviceRequested", "service_requested"]);
+  const zip = input.zip ?? readMetadataString(input.metadata, ["zip", "zip_code", "postalCode"]);
+  const externalLeadId =
+    input.externalLeadId ?? readMetadataString(input.metadata, ["externalLeadId", "external_lead_id"]);
+  const callDirection = readMetadataString(input.metadata, ["call_direction", "callDirection"]) ?? "inbound";
+  const callTranscript = readMetadataString(input.metadata, ["call_transcript", "callTranscript", "transcript"]);
+
+  addCustomField(fields, env.GHL_FIELD_SERVICE_REQUESTED, serviceRequested);
+  addCustomField(fields, env.GHL_FIELD_ROUTED_CALENDAR_ID, input.routedCalendarId);
+  addCustomField(fields, env.GHL_FIELD_LEAD_SOURCE, input.source);
+  addCustomField(fields, env.GHL_FIELD_ZIP_CODE, zip);
+  addCustomField(fields, env.GHL_FIELD_CALL_DIRECTION, callDirection);
+  addCustomField(fields, env.GHL_FIELD_CALL_TRANSCRIPT, callTranscript);
+  addCustomField(fields, env.GHL_FIELD_EXTERNAL_LEAD_ID, externalLeadId);
+
+  return fields;
+}
+
+function getContactId(response: GhlContactResponse): string {
+  return String(response.contact?.id ?? response.contact?.contactId ?? response.contactId ?? response.id ?? uuidv4());
+}
+
+function getOpportunityId(response: GhlOpportunityResponse): string {
+  return String(response.opportunity?.id ?? response.opportunity?.opportunityId ?? response.opportunityId ?? response.id ?? uuidv4());
 }
 
 export class GhlClient {
@@ -48,26 +130,64 @@ export class GhlClient {
       };
     }
 
-    const endpoint = `${env.GHL_BASE_URL}/contacts/upsert`;
-    const payload = {
+    const contactEndpoint = `${env.GHL_BASE_URL}/contacts/upsert`;
+    const customFields = buildLeadCustomFields(input);
+    const contactPayload = compactPayload({
       locationId: input.subAccountId,
       firstName: input.firstName,
       lastName: input.lastName,
       email: input.email,
       phone: input.phone,
       source: input.source,
-      customFields: {
-        routedCalendarId: input.routedCalendarId,
-        ...input.metadata
-      }
-    };
+      customFields: customFields.length > 0 ? customFields : undefined
+    });
 
-    const response = await this.requestWithRetry(endpoint, payload);
+    const contactResponse = (await this.requestWithRetry(contactEndpoint, contactPayload)) as GhlContactResponse;
+    const contactId = getContactId(contactResponse);
+    const pipelineId =
+      input.pipelineId ?? readMetadataString(input.metadata, ["ghlPipelineId", "pipelineId"]) ?? env.GHL_PIPELINE_ID;
+    const pipelineStageId =
+      input.pipelineStageId ??
+      readMetadataString(input.metadata, ["ghlPipelineStageId", "pipelineStageId"]) ??
+      env.GHL_PIPELINE_STAGE_ID;
+
+    if (!pipelineId || !pipelineStageId) {
+      logger.warn({ subAccountId: input.subAccountId }, "Skipping opportunity creation: GHL_PIPELINE_ID or GHL_PIPELINE_STAGE_ID not configured");
+      return {
+        mode: "live",
+        contactId,
+        opportunityId: "",
+        details: { contact: contactResponse, opportunity: null }
+      };
+    }
+
+    const opportunityEndpoint = `${env.GHL_BASE_URL}/opportunities/`;
+    const opportunityPayload = compactPayload({
+      locationId: input.subAccountId,
+      contactId,
+      pipelineId,
+      pipelineStageId,
+      name:
+        input.opportunityName ??
+        ([input.firstName, input.lastName].filter(Boolean).join(" ") || input.phone || input.email || "New Lead"),
+      source: input.source,
+      status: "open",
+      monetaryValue: input.monetaryValue
+    });
+
+    const opportunityResponse = (await this.requestWithRetry(
+      opportunityEndpoint,
+      opportunityPayload
+    )) as GhlOpportunityResponse;
+
     return {
       mode: "live",
-      contactId: String(response.contactId ?? response.id ?? uuidv4()),
-      opportunityId: String(response.opportunityId ?? response.oppId ?? uuidv4()),
-      details: response
+      contactId,
+      opportunityId: getOpportunityId(opportunityResponse),
+      details: {
+        contact: contactResponse,
+        opportunity: opportunityResponse
+      }
     };
   }
 
@@ -105,6 +225,7 @@ export class GhlClient {
   private async requestWithRetry(url: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     const headers = {
       Authorization: `Bearer ${env.GHL_API_KEY}`,
+      Version: env.GHL_API_VERSION,
       "Content-Type": "application/json"
     };
 

@@ -766,6 +766,112 @@ code {
   }
 }
 
+.field-label {
+  display: block;
+  color: #cad8e8;
+  font-size: 0.94rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.service-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #2f4460;
+  border-radius: 11px;
+  padding: 0.5rem;
+  background: #0d1726;
+}
+
+.service-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #d0dce8;
+  font-size: 0.88rem;
+  font-weight: 400;
+  transition: background 0.15s ease;
+}
+
+.service-checkbox-row:hover {
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.status-bar.success {
+  border-color: rgba(54, 228, 218, 0.5);
+  color: #36e4da;
+  background: rgba(54, 228, 218, 0.06);
+}
+
+.status-bar.error {
+  border-color: rgba(255, 98, 64, 0.5);
+  color: #ff9d88;
+  background: rgba(255, 98, 64, 0.06);
+}
+
+.route-result-card {
+  margin-top: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #2f4664;
+  padding: 0.85rem 1rem;
+  background: rgba(10, 18, 28, 0.85);
+}
+
+.route-result-card.matched {
+  border-color: rgba(54, 228, 218, 0.45);
+  background: rgba(54, 228, 218, 0.05);
+}
+
+.route-result-card.no-match {
+  border-color: rgba(255, 98, 64, 0.45);
+  background: rgba(255, 98, 64, 0.05);
+}
+
+.route-result-status {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+.route-result-card.matched .route-result-status {
+  color: #36e4da;
+}
+
+.route-result-card.no-match .route-result-status {
+  color: #ff9d88;
+}
+
+.route-result-details {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.route-result-details div {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0.5rem;
+}
+
+.route-result-details dt {
+  color: #9ab0c8;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.route-result-details dd {
+  margin: 0;
+  color: #dce8f4;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 900px) {
   .topbar {
     flex-direction: column;

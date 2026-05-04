@@ -58,6 +58,12 @@ export async function createConfig(payload: Omit<ClientConfig, "id" | "createdAt
   return response.client;
 }
 
+export async function deleteConfig(id: string): Promise<void> {
+  await request<void>(`/configs/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export async function previewRoute(input: {
   clientId: string;
   service: string;

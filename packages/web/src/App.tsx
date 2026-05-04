@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, useMapEvents } from "react-leaflet";
 import {
   createConfig,
+  deleteConfig,
   fetchConfigs,
   fetchEvents,
   previewRoute,
@@ -165,11 +166,13 @@ function PolygonMapModal({ title, initialPoints, onUseArea, onClose }: PolygonMa
 }
 
 function createEmptyRoute(services: string[]): CalendarRoute {
+  const firstService = services[0] ?? "General Service";
+
   return {
     id: crypto.randomUUID(),
-    label: "",
-    ghlCalendarId: "",
-    services: services.length > 0 ? [services[0]] : [],
+    label: firstService,
+    ghlCalendarId: "ghl_calendar_id",
+    services: [firstService],
     area: {
       mode: "NONE",
       zipCodes: [],
@@ -228,7 +231,8 @@ function App() {
     lng: "",
     stage: "New Lead"
   });
-  const [routeResult, setRouteResult] = useState<string>("");
+  const [routeResult, setRouteResult] = useState<{ matched: boolean; calendar: string; reason: string; pluginEnabled: boolean } | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [jobTypeSource, setJobTypeSource] = useState<JobTypeSource>("manual");
   const [jobTypeQuery, setJobTypeQuery] = useState<string>("");
   const [isJobTypeModalOpen, setIsJobTypeModalOpen] = useState(false);
@@ -269,6 +273,12 @@ function App() {
     }
   }, [selectedConfig]);
 
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setStatus(""), 5000);
+    return () => clearTimeout(timer);
+  }, [status]);
+
   const canSave = Boolean(draft && draft.clientName && draft.slug && draft.services.length > 0);
   const filteredJobTypes = useMemo(
     () =>
@@ -281,6 +291,17 @@ function App() {
       }),
     [jobTypeQuery]
   );
+  const hasUnsavedChanges = useMemo(() => {
+    if (!draft || !selectedConfig) return false;
+    return JSON.stringify(draft) !== JSON.stringify(selectedConfig);
+  }, [draft, selectedConfig]);
+
+  const statusClass = status.toLowerCase().includes("fail") || status.toLowerCase().includes("error")
+    ? "error"
+    : status.toLowerCase().includes("saved") || status.toLowerCase().includes("created") || status.toLowerCase().includes("deleted")
+    ? "success"
+    : "";
+
   const selectedPolygonRoute = useMemo(
     () => (draft && polygonRouteId ? draft.calendarRoutes.find((route) => route.id === polygonRouteId) ?? null : null),
     [draft, polygonRouteId]
@@ -365,9 +386,10 @@ function App() {
 
     try {
       setIsSaving(true);
+      const suffix = Date.now().toString(36);
       const payload = cloneConfigForSave({
         ...draft,
-        slug: `${draft.slug}_${Math.floor(Math.random() * 1000)}`,
+        slug: `${draft.slug}_${suffix}`,
         clientName: `${draft.clientName} Copy`
       });
 
@@ -383,12 +405,45 @@ function App() {
     }
   }
 
+  async function handleDeleteClient(): Promise<void> {
+    if (!draft) {
+      return;
+    }
+
+    if (configs.length <= 1) {
+      setStatus("Keep at least one client config in the console");
+      return;
+    }
+
+    if (!window.confirm(`Delete ${draft.clientName}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await deleteConfig(draft.id);
+
+      const remaining = configs.filter((item) => item.id !== draft.id);
+      const nextSelected = remaining[0] ?? null;
+
+      setConfigs(remaining);
+      setSelectedId(nextSelected?.id ?? "");
+      setDraft(nextSelected ? structuredClone(nextSelected) : null);
+      setStatus(`Deleted ${draft.clientName}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to delete client");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function handleRoutePreview(): Promise<void> {
     if (!draft || routeInput.service.trim().length === 0) {
       return;
     }
 
     try {
+      setRouteLoading(true);
       const response = await previewRoute({
         clientId: draft.id,
         service: routeInput.service,
@@ -398,16 +453,19 @@ function App() {
         stage: routeInput.stage || undefined
       });
 
-      const target = response.decision.calendar
-        ? `${response.decision.calendar.label} (${response.decision.calendar.ghlCalendarId})`
-        : "No target calendar";
-      setRouteResult(
-        `${response.decision.matched ? "MATCH" : "NO MATCH"}: ${target} | ${response.decision.reason} | plugin=${String(
-          response.pluginEnabled
-        )}`
-      );
+      setRouteResult({
+        matched: response.decision.matched,
+        calendar: response.decision.calendar
+          ? `${response.decision.calendar.label} (${response.decision.calendar.ghlCalendarId})`
+          : "No target calendar",
+        reason: response.decision.reason,
+        pluginEnabled: response.pluginEnabled ?? false
+      });
     } catch (error) {
-      setRouteResult(error instanceof Error ? error.message : "Route preview failed");
+      setStatus(error instanceof Error ? error.message : "Route preview failed");
+      setRouteResult(null);
+    } finally {
+      setRouteLoading(false);
     }
   }
 
@@ -442,8 +500,11 @@ function App() {
           <button onClick={handleCreateClone} disabled={isSaving} className="ghost-button">
             Clone Client
           </button>
+          <button onClick={handleDeleteClient} disabled={isSaving || configs.length <= 1} className="danger-button">
+            Delete Client
+          </button>
           <button onClick={handleSave} disabled={!canSave || isSaving} className="primary-button">
-            {isSaving ? "Saving..." : "Save Config"}
+            {isSaving ? "Saving..." : hasUnsavedChanges ? "Save Changes *" : "Save Config"}
           </button>
         </div>
       </header>
@@ -464,17 +525,10 @@ function App() {
                 </button>
               ))}
             </div>
-            <label className="inline-check">
-              <input
-                type="checkbox"
-                checked={Boolean(draft.pluginToggles["Appt Requested"])}
-                onChange={() => toggleBotMode("Appt Requested")}
-              />
-              Update GHL opportunity stage -&gt; Appointment Requested
-            </label>
           </div>
 
           <div className="card">
+            <h2>Client Details</h2>
             <div className="grid-two">
               <label>
                 Client Name
@@ -511,6 +565,7 @@ function App() {
                 <button
                   key={industry}
                   className={draft.industries.includes(industry) ? "chip active" : "chip"}
+                  disabled={draft.industries.length <= 1 && draft.industries.includes(industry)}
                   onClick={() => toggleIndustry(industry)}
                   type="button"
                 >
@@ -528,6 +583,7 @@ function App() {
                   <span>{unit}</span>
                   <button
                     type="button"
+                    disabled={draft.businessUnits.length <= 1}
                     onClick={() =>
                       updateDraft((current) => ({
                         ...current,
@@ -621,12 +677,14 @@ function App() {
               <button
                 type="button"
                 className="primary-button"
-                onClick={() =>
+                onClick={() => {
+                  const route = createEmptyRoute(draft.services);
                   updateDraft((current) => ({
                     ...current,
-                    calendarRoutes: [...current.calendarRoutes, createEmptyRoute(current.services)]
-                  }))
-                }
+                    calendarRoutes: [...current.calendarRoutes, route]
+                  }));
+                  setStatus(`Added calendar route: ${route.label}`);
+                }}
               >
                 + Add Calendar
               </button>
@@ -667,27 +725,31 @@ function App() {
                     </label>
                   </div>
 
-                  <label>
-                    Services this calendar handles
-                    <select
-                      multiple
-                      value={route.services}
-                      onChange={(event) => {
-                        const selected = Array.from(event.target.selectedOptions).map((option) => option.value);
-                        updateDraft((current) => {
-                          const next = structuredClone(current);
-                          next.calendarRoutes[routeIndex].services = selected;
-                          return next;
-                        });
-                      }}
-                    >
+                  <div>
+                    <span className="field-label">Services this calendar handles</span>
+                    <div className="service-checkbox-grid">
                       {draft.services.map((service) => (
-                        <option key={service} value={service}>
-                          {service}
-                        </option>
+                        <label key={service} className="service-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={route.services.includes(service)}
+                            disabled={route.services.length <= 1 && route.services.includes(service)}
+                            onChange={() =>
+                              updateDraft((current) => {
+                                const next = structuredClone(current);
+                                const svcs = next.calendarRoutes[routeIndex].services;
+                                next.calendarRoutes[routeIndex].services = svcs.includes(service)
+                                  ? svcs.filter((s) => s !== service)
+                                  : [...svcs, service];
+                                return next;
+                              })
+                            }
+                          />
+                          <span>{service}</span>
+                        </label>
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                  </div>
 
                   <div className="area-tabs">
                     {([
@@ -700,13 +762,16 @@ function App() {
                         type="button"
                         key={mode}
                         className={route.area.mode === mode ? "chip active" : "chip"}
-                        onClick={() =>
+                        onClick={() => {
                           updateDraft((current) => {
                             const next = structuredClone(current);
                             next.calendarRoutes[routeIndex].area.mode = mode;
                             return next;
-                          })
-                        }
+                          });
+                          if (mode === "POLYGON") {
+                            setPolygonRouteId(route.id);
+                          }
+                        }}
                       >
                         {label}
                       </button>
@@ -814,6 +879,26 @@ function App() {
                     </>
                   )}
 
+                  {route.area.mode !== "POLYGON" && (
+                    <div className="row-between">
+                      <span className="subtle">Use polygon drawing when this calendar needs a custom service area.</span>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => {
+                          updateDraft((current) => {
+                            const next = structuredClone(current);
+                            next.calendarRoutes[routeIndex].area.mode = "POLYGON";
+                            return next;
+                          });
+                          setPolygonRouteId(route.id);
+                        }}
+                      >
+                        Draw on Map
+                      </button>
+                    </div>
+                  )}
+
                   <div className="row-right">
                     <button
                       type="button"
@@ -835,6 +920,7 @@ function App() {
                     <button
                       type="button"
                       className="danger-button"
+                      disabled={draft.calendarRoutes.length <= 1}
                       onClick={() =>
                         updateDraft((current) => ({
                           ...current,
@@ -994,6 +1080,7 @@ function App() {
                       <button
                         className="ghost-button"
                         type="button"
+                        disabled={draft.stageMappings.length <= 1}
                         onClick={() =>
                           updateDraft((current) => ({
                             ...current,
@@ -1041,11 +1128,22 @@ function App() {
               </label>
             </div>
             <div className="row-between">
-              <button className="primary-button" type="button" onClick={handleRoutePreview}>
-                Preview Route
+              <button className="primary-button" type="button" onClick={handleRoutePreview} disabled={routeLoading}>
+                {routeLoading ? "Checking..." : "Preview Route"}
               </button>
-              <code>{routeResult || "Run a route preview to validate service + area mapping."}</code>
             </div>
+            {routeResult ? (
+              <div className={`route-result-card ${routeResult.matched ? "matched" : "no-match"}`}>
+                <strong className="route-result-status">{routeResult.matched ? "MATCHED" : "NO MATCH"}</strong>
+                <dl className="route-result-details">
+                  <div><dt>Calendar</dt><dd>{routeResult.calendar}</dd></div>
+                  <div><dt>Reason</dt><dd>{routeResult.reason}</dd></div>
+                  <div><dt>Plugin</dt><dd>{routeResult.pluginEnabled ? "Enabled" : "Disabled"}</dd></div>
+                </dl>
+              </div>
+            ) : (
+              <p className="subtle">Run a route preview to validate service + area mapping.</p>
+            )}
           </div>
         </section>
 
@@ -1160,7 +1258,7 @@ function App() {
         </aside>
       </main>
 
-      <footer className="status-bar">{status || "Ready"}</footer>
+      <footer className={`status-bar${statusClass ? ` ${statusClass}` : ""}`}>{status || "Ready"}</footer>
 
       {isJobTypeModalOpen && (
         <div className="modal-backdrop">
