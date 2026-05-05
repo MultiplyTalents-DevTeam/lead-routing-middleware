@@ -176,6 +176,24 @@ export const jobWebhookSchema = z.object({
   payload: z.record(z.string(), z.unknown()).default({})
 });
 
+export const retellWebhookSchema = z.object({
+  event: z.string(),
+  call: z.object({
+    call_id: z.string(),
+    from_number: z.string().optional(),
+    to_number: z.string().optional(),
+    direction: z.string().optional(),
+    transcript: z.string().optional(),
+    call_analysis: z
+      .object({
+        call_summary: z.string().optional(),
+        custom_analysis_data: z.record(z.string(), z.unknown()).optional()
+      })
+      .optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+});
+
 export const clientLookupSchema = z
   .object({
     clientId: z.string().uuid().optional(),

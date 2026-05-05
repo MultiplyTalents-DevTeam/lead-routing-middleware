@@ -4,7 +4,7 @@ import type { GhlClient } from "../services/ghlClient.js";
 import { resolveClient } from "../services/clientResolver.js";
 import { resolveRoute } from "../services/routing.js";
 import type { FileStore } from "../storage/fileStore.js";
-import { estimateWebhookSchema, jobWebhookSchema, leadWebhookSchema, statusWebhookSchema } from "../types/schemas.js";
+import { estimateWebhookSchema, jobWebhookSchema, leadWebhookSchema, retellWebhookSchema, statusWebhookSchema } from "../types/schemas.js";
 import { getIdempotencyKey, requireWebhookSecret } from "./_auth.js";
 
 function normalize(value: string): string {
@@ -354,6 +354,130 @@ export function webhooksRouter(store: FileStore, ghlClient: GhlClient): Router {
         eventType: "job",
         status: "processed",
         payload: payload as Record<string, unknown>,
+        result,
+        receivedAt: new Date().toISOString()
+      });
+
+      res.status(202).json({ accepted: true, event, result });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/webhooks/retell", async (req, res, next) => {
+    try {
+      const parsed = retellWebhookSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid Retell payload", details: parsed.error.issues });
+        return;
+      }
+
+      const { call } = parsed.data;
+
+      if (parsed.data.event !== "call_analyzed") {
+        res.status(200).json({ skipped: true, event: parsed.data.event });
+        return;
+      }
+
+      const analysis = call.call_analysis?.custom_analysis_data ?? {};
+      const getString = (keys: string[]): string | undefined => {
+        for (const key of keys) {
+          const val = analysis[key];
+          if (typeof val === "string" && val.trim()) return val.trim();
+        }
+        return undefined;
+      };
+
+      const firstName = getString(["first_name", "firstName"]);
+      const lastName = getString(["last_name", "lastName"]);
+      const phone = getString(["phone", "phone_number"]) ?? call.from_number;
+      const email = getString(["email"]);
+      const serviceRequested = getString(["service_requested", "serviceRequested", "service"]);
+      const zip = getString(["zip_code", "zip", "postal_code"]);
+      const clientSlug = String(call.metadata?.client_slug ?? "multiply_talents");
+
+      const client = await resolveClient(store, { clientSlug });
+      if (!client) {
+        res.status(404).json({ error: "Client not found", clientSlug });
+        return;
+      }
+
+      const idempotencyKey = call.call_id;
+      const existing = await store.findEventByIdempotencyKey(client.id, "lead", idempotencyKey);
+      if (existing) {
+        res.json({ duplicate: true, event: existing });
+        return;
+      }
+
+      const service = serviceRequested ?? client.services[0];
+      const routeDecision = service
+        ? resolveRoute(client, { service, zip })
+        : { matched: false, reason: "No service identified from call" };
+
+      const ghlResult = await ghlClient.upsertLead({
+        subAccountId: client.ghlSubAccountId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        source: "retell_ai",
+        serviceRequested: service,
+        zip,
+        externalLeadId: call.call_id,
+        routedCalendarId: routeDecision.matched ? routeDecision.calendar?.ghlCalendarId : undefined,
+        fieldMappings: client.ghlFieldMappings,
+        metadata: {
+          call_direction: call.direction ?? "inbound",
+          call_transcript: call.transcript,
+          call_summary: call.call_analysis?.call_summary,
+          retell_call_id: call.call_id
+        }
+      });
+
+      const lead = {
+        id: uuidv4(),
+        clientId: client.id,
+        source: "retell_ai",
+        externalLeadId: call.call_id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        serviceRequested: service,
+        zip,
+        routedCalendarId: routeDecision.calendar?.ghlCalendarId,
+        ghlContactId: ghlResult.contactId,
+        ghlOpportunityId: ghlResult.opportunityId,
+        createdAt: new Date().toISOString(),
+        metadata: { retell_call_id: call.call_id, ...analysis }
+      };
+
+      await store.addLead(lead);
+
+      await ghlClient.triggerWorkflow({
+        contactId: ghlResult.contactId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        serviceRequested: service,
+        zip,
+        source: "retell_ai",
+        routedCalendarId: routeDecision.calendar?.ghlCalendarId,
+        routeMatched: routeDecision.matched,
+        callTranscript: call.transcript,
+        callSummary: call.call_analysis?.call_summary,
+        retellCallId: call.call_id
+      });
+
+      const result = { routeDecision, ghl: ghlResult, leadId: lead.id };
+
+      const event = await store.createEvent({
+        idempotencyKey,
+        clientId: client.id,
+        eventType: "lead",
+        status: "processed",
+        payload: req.body as Record<string, unknown>,
         result,
         receivedAt: new Date().toISOString()
       });
