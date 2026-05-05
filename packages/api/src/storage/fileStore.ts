@@ -3,7 +3,19 @@ import { dirname, resolve } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "../config.js";
 import { buildDefaultStore } from "../seed.js";
-import type { ClientConfig, DataStore, EventLog, LeadRecord } from "../types/domain.js";
+import type { ClientConfig, DataStore, EventLog, GhlFieldMappings, LeadRecord } from "../types/domain.js";
+
+const defaultGhlFieldMappings: GhlFieldMappings = {
+  leadSource: "krNKmxYIrhzybJaKQNTt",
+  serviceRequest: "8qw6L82qy6W0v2yJ8MCi",
+  serviceRequested: "xVouHNLowDPm1N4tTzrZ",
+  serviceAreaZip: "XTqv3WVpaCLvrtpWH8KQ",
+  locationBranch: "0F6qhgcyIdHTdWrQzMQl",
+  assignedRep: "Q7RffLvfYJtncMnSdO76",
+  estimateStatus: "jIUzyZS39Me3jwPcz8Ma",
+  declineReason: "vjqyAgsxWucR6lR7gmeD",
+  lastJobType: "wydMfnRi73M1SmYMD2Qh"
+};
 
 export class FileStore {
   private readonly filePath: string;
@@ -18,7 +30,7 @@ export class FileStore {
 
     try {
       const current = await this.load();
-      const migrated = this.migrateLegacyBranding(current);
+      const migrated = this.migrateStore(current);
       if (migrated) {
         await this.save(current);
       }
@@ -115,11 +127,12 @@ export class FileStore {
     await rename(tmpPath, this.filePath);
   }
 
-  private migrateLegacyBranding(store: DataStore): boolean {
+  private migrateStore(store: DataStore): boolean {
     let changed = false;
 
     for (const client of store.clients) {
       let clientChanged = false;
+      const mutableClient = client as ClientConfig & { ghlFieldMappings?: GhlFieldMappings };
 
       if (client.slug === "nonstop_automation") {
         client.slug = "multiply_talents";
@@ -128,6 +141,16 @@ export class FileStore {
 
       if (client.clientName === "Nonstop Automation") {
         client.clientName = "Multiply Talents";
+        clientChanged = true;
+      }
+
+      if (client.ghlSubAccountId === "ghl_sub_001") {
+        client.ghlSubAccountId = "fifBD0MSR8EqqjlNkFbM";
+        clientChanged = true;
+      }
+
+      if (!mutableClient.ghlFieldMappings) {
+        mutableClient.ghlFieldMappings = defaultGhlFieldMappings;
         clientChanged = true;
       }
 

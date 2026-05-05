@@ -8,7 +8,7 @@ export function buildDefaultConfig(): ClientConfig {
     id: uuidv4(),
     slug: "multiply_talents",
     clientName: "Multiply Talents",
-    ghlSubAccountId: "ghl_sub_001",
+    ghlSubAccountId: "fifBD0MSR8EqqjlNkFbM",
     connectedCrm: "ServiceTitan",
     timezone: "America/Los_Angeles",
     industries: ["HVAC"],
@@ -84,6 +84,17 @@ export function buildDefaultConfig(): ClientConfig {
       Review: false,
       "Annual Lead": false,
       "Annual Customer": false
+    },
+    ghlFieldMappings: {
+      leadSource: "krNKmxYIrhzybJaKQNTt",
+      serviceRequest: "8qw6L82qy6W0v2yJ8MCi",
+      serviceRequested: "xVouHNLowDPm1N4tTzrZ",
+      serviceAreaZip: "XTqv3WVpaCLvrtpWH8KQ",
+      locationBranch: "0F6qhgcyIdHTdWrQzMQl",
+      assignedRep: "Q7RffLvfYJtncMnSdO76",
+      estimateStatus: "jIUzyZS39Me3jwPcz8Ma",
+      declineReason: "vjqyAgsxWucR6lR7gmeD",
+      lastJobType: "wydMfnRi73M1SmYMD2Qh"
     },
     createdAt: now,
     updatedAt: now

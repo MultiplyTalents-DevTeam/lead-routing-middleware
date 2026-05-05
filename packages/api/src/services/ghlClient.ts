@@ -1,6 +1,7 @@
 ﻿import { v4 as uuidv4 } from "uuid";
 import { env } from "../config.js";
 import { logger } from "../logger.js";
+import type { GhlFieldMappings } from "../types/domain.js";
 
 interface LeadUpsertInput {
   subAccountId: string;
@@ -17,6 +18,7 @@ interface LeadUpsertInput {
   pipelineStageId?: string;
   opportunityName?: string;
   monetaryValue?: number;
+  fieldMappings?: GhlFieldMappings;
   metadata: Record<string, unknown>;
 }
 
@@ -80,8 +82,17 @@ function addCustomField(fields: GhlCustomField[], id: string | undefined, value:
   fields.push({ id, value });
 }
 
+function fieldId(
+  mappings: GhlFieldMappings | undefined,
+  key: keyof GhlFieldMappings,
+  fallback?: string
+): string | undefined {
+  return mappings?.[key] || fallback;
+}
+
 function buildLeadCustomFields(input: LeadUpsertInput): GhlCustomField[] {
   const fields: GhlCustomField[] = [];
+  const mappings = input.fieldMappings;
   const serviceRequested =
     input.serviceRequested ?? readMetadataString(input.metadata, ["serviceRequested", "service_requested"]);
   const zip = input.zip ?? readMetadataString(input.metadata, ["zip", "zip_code", "postalCode"]);
@@ -89,14 +100,26 @@ function buildLeadCustomFields(input: LeadUpsertInput): GhlCustomField[] {
     input.externalLeadId ?? readMetadataString(input.metadata, ["externalLeadId", "external_lead_id"]);
   const callDirection = readMetadataString(input.metadata, ["call_direction", "callDirection"]) ?? "inbound";
   const callTranscript = readMetadataString(input.metadata, ["call_transcript", "callTranscript", "transcript"]);
+  const locationBranch = readMetadataString(input.metadata, ["location_branch", "locationBranch", "branch"]);
+  const assignedRep = readMetadataString(input.metadata, ["assigned_rep", "assignedRep"]);
+  const estimateStatus = readMetadataString(input.metadata, ["estimate_status", "estimateStatus"]);
+  const declineReason = readMetadataString(input.metadata, ["decline_reason", "declineReason"]);
+  const lastJobType =
+    readMetadataString(input.metadata, ["last_job_type", "lastJobType", "job_type", "jobType"]) ?? serviceRequested;
 
-  addCustomField(fields, env.GHL_FIELD_SERVICE_REQUESTED, serviceRequested);
-  addCustomField(fields, env.GHL_FIELD_ROUTED_CALENDAR_ID, input.routedCalendarId);
-  addCustomField(fields, env.GHL_FIELD_LEAD_SOURCE, input.source);
-  addCustomField(fields, env.GHL_FIELD_ZIP_CODE, zip);
-  addCustomField(fields, env.GHL_FIELD_CALL_DIRECTION, callDirection);
-  addCustomField(fields, env.GHL_FIELD_CALL_TRANSCRIPT, callTranscript);
-  addCustomField(fields, env.GHL_FIELD_EXTERNAL_LEAD_ID, externalLeadId);
+  addCustomField(fields, fieldId(mappings, "serviceRequest"), serviceRequested);
+  addCustomField(fields, fieldId(mappings, "serviceRequested", env.GHL_FIELD_SERVICE_REQUESTED), serviceRequested);
+  addCustomField(fields, fieldId(mappings, "routedCalendarId", env.GHL_FIELD_ROUTED_CALENDAR_ID), input.routedCalendarId);
+  addCustomField(fields, fieldId(mappings, "leadSource", env.GHL_FIELD_LEAD_SOURCE), input.source);
+  addCustomField(fields, fieldId(mappings, "serviceAreaZip", env.GHL_FIELD_ZIP_CODE), zip);
+  addCustomField(fields, fieldId(mappings, "callDirection", env.GHL_FIELD_CALL_DIRECTION), callDirection);
+  addCustomField(fields, fieldId(mappings, "callTranscript", env.GHL_FIELD_CALL_TRANSCRIPT), callTranscript);
+  addCustomField(fields, fieldId(mappings, "externalLeadId", env.GHL_FIELD_EXTERNAL_LEAD_ID), externalLeadId);
+  addCustomField(fields, fieldId(mappings, "locationBranch"), locationBranch);
+  addCustomField(fields, fieldId(mappings, "assignedRep"), assignedRep);
+  addCustomField(fields, fieldId(mappings, "estimateStatus"), estimateStatus);
+  addCustomField(fields, fieldId(mappings, "declineReason"), declineReason);
+  addCustomField(fields, fieldId(mappings, "lastJobType"), lastJobType);
 
   return fields;
 }

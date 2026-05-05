@@ -25,6 +25,8 @@ body,
 #root {
   margin: 0;
   min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
   font-family:
     "Space Grotesk",
     "IBM Plex Sans",
@@ -54,9 +56,12 @@ textarea {
 }
 
 .app-shell {
-  padding: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(0.75rem, 1.8vw, 1.25rem);
   max-width: 1760px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -72,6 +77,11 @@ textarea {
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
+  min-width: 0;
+}
+
+.topbar > div {
+  min-width: 0;
 }
 
 .topbar::before {
@@ -88,6 +98,7 @@ textarea {
   letter-spacing: 0.2px;
   text-transform: uppercase;
   line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .topbar p {
@@ -134,10 +145,18 @@ textarea {
   gap: 0.6rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: min(100%, 380px);
 }
 
 .toolbar select {
-  min-width: 280px;
+  min-width: 0;
+  width: min(380px, 100%);
+  flex: 1 1 220px;
+}
+
+.toolbar button {
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 .layout-grid {
@@ -152,6 +171,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 1.05rem;
+  min-width: 0;
 }
 
 .right-column {
@@ -167,6 +187,7 @@ textarea {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  min-width: 0;
   transition:
     border-color 0.25s ease,
     box-shadow 0.25s ease;
@@ -288,6 +309,7 @@ input[type="radio"]:focus {
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .grid-two {
@@ -322,6 +344,7 @@ input[type="radio"]:focus {
   padding: 0.4rem 0.78rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  max-width: 100%;
 }
 
 .chip.active {
@@ -340,6 +363,12 @@ input[type="radio"]:focus {
   border: 1px solid #334a67;
   color: #dce2ea;
   background: #0f1823;
+  max-width: 100%;
+}
+
+.pill span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pill button {
@@ -427,6 +456,25 @@ input[type="radio"]:focus {
   gap: 0.55rem;
 }
 
+.field-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.field-mapping-grid label span {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.field-mapping-grid small {
+  color: #8fa6c0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
 .field-item {
   display: flex;
   justify-content: space-between;
@@ -456,6 +504,7 @@ input[type="radio"]:focus {
 .mapping-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .mapping-table th,
@@ -464,6 +513,11 @@ input[type="radio"]:focus {
   padding: 0.5rem 0.36rem;
   text-align: left;
   vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.mapping-table input {
+  min-width: 0;
 }
 
 .mapping-table th {
@@ -547,6 +601,8 @@ details pre {
   overflow: auto;
   font-size: 0.76rem;
   color: #c5cfdd;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .plugin-list {
@@ -590,7 +646,7 @@ details pre {
 }
 
 .modal-card {
-  width: min(1100px, 96vw);
+  width: min(1100px, calc(100vw - 2rem));
   max-height: 90vh;
   overflow: auto;
   border: 1px solid #395474;
@@ -601,7 +657,7 @@ details pre {
 }
 
 .map-modal {
-  width: min(1180px, 96vw);
+  width: min(1180px, calc(100vw - 2rem));
 }
 
 .modal-header {
@@ -685,7 +741,8 @@ details pre {
 
 .leaflet-map {
   width: 100%;
-  height: 500px;
+  height: min(500px, 58vh);
+  min-height: 360px;
 }
 
 .event-row {
@@ -736,6 +793,7 @@ code {
   font-size: 0.82rem;
   max-width: 72%;
   overflow: auto;
+  overflow-wrap: anywhere;
 }
 
 *::-webkit-scrollbar {
@@ -880,6 +938,12 @@ code {
 
   .toolbar {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .toolbar select,
+  .toolbar button {
+    flex: 1 1 180px;
   }
 
   .grid-two,
@@ -902,5 +966,135 @@ code {
   .modal-search-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 0.65rem;
+  }
+
+  .topbar,
+  .card {
+    border-radius: 12px;
+    padding: 0.9rem;
+  }
+
+  .topbar h1 {
+    font-size: 1.25rem;
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar select {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .toolbar button {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .grid-five,
+  .service-checkbox-grid,
+  .field-mapping-grid,
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-table,
+  .mapping-table thead,
+  .mapping-table tbody,
+  .mapping-table tr,
+  .mapping-table th,
+  .mapping-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mapping-table thead {
+    display: none;
+  }
+
+  .mapping-table tr {
+    border: 1px solid #304862;
+    border-radius: 11px;
+    padding: 0.65rem;
+    margin-bottom: 0.65rem;
+    background: rgba(10, 17, 28, 0.72);
+  }
+
+  .mapping-table td {
+    border-bottom: 0;
+    padding: 0.35rem 0;
+  }
+
+  .mapping-table td:last-child {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .preview-list div,
+  .route-result-details div {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+
+  .modal-backdrop {
+    padding: 0.5rem;
+    align-items: start;
+  }
+
+  .modal-card,
+  .map-modal {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    flex-direction: column;
+  }
+
+  .map-toolbar span {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .leaflet-map {
+    min-height: 320px;
+    height: 52vh;
+  }
+}
+
+@media (max-width: 460px) {
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .row-between,
+  .row-right,
+  .area-tabs,
+  .chips-wrap {
+    align-items: stretch;
+  }
+
+  .row-between > *,
+  .row-right > *,
+  .area-tabs > *,
+  .chips-wrap > * {
+    max-width: 100%;
+  }
+
+  .primary-button,
+  .ghost-button,
+  .danger-button,
+  .chip {
+    white-space: normal;
   }
 }

@@ -8,7 +8,7 @@ import {
   previewRoute,
   updateConfig
 } from "./api/client";
-import type { AreaMode, CalendarRoute, ClientConfig, EventLog, StageMapping } from "./types";
+import type { AreaMode, CalendarRoute, ClientConfig, EventLog, GhlFieldMappings, StageMapping } from "./types";
 import "./styles.css";
 
 const industryOptions = [
@@ -41,6 +41,22 @@ const pluginDefaults = [
   "Annual Lead",
   "Annual Customer"
 ];
+
+const ghlFieldMappingFields = [
+  ["leadSource", "Lead Source", "contact.lead_source"],
+  ["serviceRequest", "Service Request", "contact.service_request"],
+  ["serviceRequested", "Service Requested", "contact.service_requested"],
+  ["serviceAreaZip", "Service Area / ZIP", "contact.service_area__zip"],
+  ["locationBranch", "Location / Branch", "contact.location__branch"],
+  ["assignedRep", "Assigned Rep", "contact.assigned_rep"],
+  ["estimateStatus", "Estimate Status", "contact.estimate_status"],
+  ["declineReason", "Decline Reason", "contact.decline_reason"],
+  ["lastJobType", "Last Job Type", "contact.last_job_type"],
+  ["routedCalendarId", "Routed Calendar ID", ""],
+  ["callDirection", "Call Direction", ""],
+  ["callTranscript", "Call Transcript", ""],
+  ["externalLeadId", "External Lead ID", ""]
+] as const satisfies ReadonlyArray<readonly [keyof GhlFieldMappings, string, string]>;
 
 const botModeKeys = ["Appt Requested", "Appt Confirmed", "Estimate Requested"] as const;
 type BotMode = (typeof botModeKeys)[number];
@@ -240,6 +256,27 @@ function App() {
   const [polygonRouteId, setPolygonRouteId] = useState<string | null>(null);
 
   const selectedConfig = useMemo(() => configs.find((cfg) => cfg.id === selectedId) ?? null, [configs, selectedId]);
+
+  useEffect(() => {
+    function sendHeight(): void {
+      window.parent?.postMessage(
+        {
+          type: "MT_MIDDLEWARE_HEIGHT",
+          height: document.documentElement.scrollHeight
+        },
+        "*"
+      );
+    }
+
+    sendHeight();
+    window.addEventListener("resize", sendHeight);
+    const interval = window.setInterval(sendHeight, 800);
+
+    return () => {
+      window.removeEventListener("resize", sendHeight);
+      window.clearInterval(interval);
+    };
+  }, [draft, events, routeResult, isJobTypeModalOpen, polygonRouteId]);
 
   useEffect(() => {
     async function load(): Promise<void> {
@@ -555,6 +592,34 @@ function App() {
                   onChange={(event) => updateDraft((current) => ({ ...current, timezone: event.target.value }))}
                 />
               </label>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>GHL Field Mappings</h2>
+            <p className="subtle">Store custom field IDs here so they can be changed without touching Vercel env vars.</p>
+            <div className="field-mapping-grid">
+              {ghlFieldMappingFields.map(([key, label, uniqueKey]) => (
+                <label key={key}>
+                  <span>
+                    {label}
+                    {uniqueKey && <small>{uniqueKey}</small>}
+                  </span>
+                  <input
+                    value={draft.ghlFieldMappings?.[key] ?? ""}
+                    placeholder="GHL custom field ID"
+                    onChange={(event) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        ghlFieldMappings: {
+                          ...(current.ghlFieldMappings ?? {}),
+                          [key]: event.target.value.trim()
+                        }
+                      }))
+                    }
+                  />
+                </label>
+              ))}
             </div>
           </div>
 

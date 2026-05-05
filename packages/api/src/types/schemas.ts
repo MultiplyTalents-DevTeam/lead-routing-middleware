@@ -73,6 +73,24 @@ export const stageMappingSchema = z.object({
   enabled: z.boolean()
 });
 
+export const ghlFieldMappingsSchema = z
+  .object({
+    leadSource: z.string().trim().optional(),
+    serviceRequest: z.string().trim().optional(),
+    serviceRequested: z.string().trim().optional(),
+    serviceAreaZip: z.string().trim().optional(),
+    locationBranch: z.string().trim().optional(),
+    assignedRep: z.string().trim().optional(),
+    estimateStatus: z.string().trim().optional(),
+    declineReason: z.string().trim().optional(),
+    lastJobType: z.string().trim().optional(),
+    routedCalendarId: z.string().trim().optional(),
+    callDirection: z.string().trim().optional(),
+    callTranscript: z.string().trim().optional(),
+    externalLeadId: z.string().trim().optional()
+  })
+  .default({});
+
 export const clientConfigSchema = z.object({
   id: z.string().uuid(),
   slug: z
@@ -94,6 +112,7 @@ export const clientConfigSchema = z.object({
   autoFields: z.array(autoFieldSchema).min(1),
   stageMappings: z.array(stageMappingSchema).min(1),
   pluginToggles: z.record(z.string().trim().min(1), z.boolean()),
+  ghlFieldMappings: ghlFieldMappingsSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });

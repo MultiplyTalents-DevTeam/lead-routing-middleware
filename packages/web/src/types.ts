@@ -44,6 +44,22 @@ export interface StageMapping {
   enabled: boolean;
 }
 
+export interface GhlFieldMappings {
+  leadSource?: string;
+  serviceRequest?: string;
+  serviceRequested?: string;
+  serviceAreaZip?: string;
+  locationBranch?: string;
+  assignedRep?: string;
+  estimateStatus?: string;
+  declineReason?: string;
+  lastJobType?: string;
+  routedCalendarId?: string;
+  callDirection?: string;
+  callTranscript?: string;
+  externalLeadId?: string;
+}
+
 export interface ClientConfig {
   id: string;
   slug: string;
@@ -59,6 +75,7 @@ export interface ClientConfig {
   autoFields: AutoField[];
   stageMappings: StageMapping[];
   pluginToggles: Record<string, boolean>;
+  ghlFieldMappings: GhlFieldMappings;
   createdAt: string;
   updatedAt: string;
 }

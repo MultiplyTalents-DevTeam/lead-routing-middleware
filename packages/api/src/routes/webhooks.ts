@@ -78,6 +78,7 @@ export function webhooksRouter(store: FileStore, ghlClient: GhlClient): Router {
         zip: payload.zip,
         externalLeadId: payload.externalLeadId,
         routedCalendarId: routeDecision.matched ? routeDecision.calendar?.ghlCalendarId : undefined,
+        fieldMappings: client.ghlFieldMappings,
         metadata: payload.metadata
       });
 
