@@ -104,6 +104,23 @@ export function webhooksRouter(store: FileStore, ghlClient: GhlClient): Router {
 
       await store.addLead(lead);
 
+      await ghlClient.triggerWorkflow({
+        contactId: ghlResult.contactId,
+        opportunityId: ghlResult.opportunityId,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
+        serviceRequested: payload.serviceRequested,
+        zip: payload.zip,
+        source: payload.source,
+        routedCalendarId: routeDecision.calendar?.ghlCalendarId,
+        routeMatched: routeDecision.matched,
+        routeReason: routeDecision.reason,
+        leadId: lead.id,
+        ...payload.metadata
+      });
+
       const result = {
         routeDecision,
         ghl: ghlResult,

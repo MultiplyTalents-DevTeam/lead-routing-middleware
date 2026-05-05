@@ -56,7 +56,7 @@ interface GhlOpportunityResponse {
 
 interface GhlCustomField {
   id: string;
-  value: unknown;
+  field_value: unknown;
 }
 
 function compactPayload(input: Record<string, unknown>): Record<string, unknown> {
@@ -79,7 +79,7 @@ function addCustomField(fields: GhlCustomField[], id: string | undefined, value:
     return;
   }
 
-  fields.push({ id, value });
+  fields.push({ id, field_value: value });
 }
 
 function fieldId(
@@ -106,11 +106,17 @@ function buildLeadCustomFields(input: LeadUpsertInput): GhlCustomField[] {
   const declineReason = readMetadataString(input.metadata, ["decline_reason", "declineReason"]);
   const lastJobType =
     readMetadataString(input.metadata, ["last_job_type", "lastJobType", "job_type", "jobType"]) ?? serviceRequested;
+  const leadSource = readMetadataString(input.metadata, ["lead_source", "leadSource"]) ?? input.source;
+  const leadSourceOption = ["angie", "thumbtack", "lsa", "social", "vendor-webhook", "other"].includes(
+    leadSource.trim().toLowerCase()
+  )
+    ? leadSource.trim().toLowerCase()
+    : "other";
 
   addCustomField(fields, fieldId(mappings, "serviceRequest"), serviceRequested);
   addCustomField(fields, fieldId(mappings, "serviceRequested", env.GHL_FIELD_SERVICE_REQUESTED), serviceRequested);
   addCustomField(fields, fieldId(mappings, "routedCalendarId", env.GHL_FIELD_ROUTED_CALENDAR_ID), input.routedCalendarId);
-  addCustomField(fields, fieldId(mappings, "leadSource", env.GHL_FIELD_LEAD_SOURCE), input.source);
+  addCustomField(fields, fieldId(mappings, "leadSource", env.GHL_FIELD_LEAD_SOURCE), leadSourceOption);
   addCustomField(fields, fieldId(mappings, "serviceAreaZip", env.GHL_FIELD_ZIP_CODE), zip);
   addCustomField(fields, fieldId(mappings, "callDirection", env.GHL_FIELD_CALL_DIRECTION), callDirection);
   addCustomField(fields, fieldId(mappings, "callTranscript", env.GHL_FIELD_CALL_TRANSCRIPT), callTranscript);
@@ -243,6 +249,37 @@ export class GhlClient {
       opportunityId: String(response.opportunityId ?? response.id ?? uuidv4()),
       details: response
     };
+  }
+
+  async triggerWorkflow(data: Record<string, unknown>): Promise<boolean> {
+    const url = env.GHL_WORKFLOW_WEBHOOK_URL;
+    if (!url) {
+      logger.warn("GHL_WORKFLOW_WEBHOOK_URL not set — skipping workflow trigger");
+      return false;
+    }
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(`Workflow trigger failed (${response.status}): ${body}`);
+        }
+        logger.info("GHL workflow triggered successfully");
+        return true;
+      } catch (error) {
+        const err = error instanceof Error ? error.message : "Unknown error";
+        logger.warn({ attempt, err }, "GHL workflow trigger attempt failed");
+        if (attempt >= maxAttempts) return false;
+        await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+      }
+    }
+    return false;
   }
 
   private async requestWithRetry(url: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {

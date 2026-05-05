@@ -25,7 +25,8 @@ const envSchema = z.object({
   GHL_FIELD_ZIP_CODE: optionalEnvString,
   GHL_FIELD_CALL_DIRECTION: optionalEnvString,
   GHL_FIELD_CALL_TRANSCRIPT: optionalEnvString,
-  GHL_FIELD_EXTERNAL_LEAD_ID: optionalEnvString
+  GHL_FIELD_EXTERNAL_LEAD_ID: optionalEnvString,
+  GHL_WORKFLOW_WEBHOOK_URL: optionalEnvString
 });
 
 const parsed = envSchema.safeParse(process.env);
