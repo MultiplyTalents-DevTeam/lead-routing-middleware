@@ -456,6 +456,8 @@ export function webhooksRouter(store: FileStore, ghlClient: GhlClient): Router {
 
       await ghlClient.triggerWorkflow({
         contactId: ghlResult.contactId,
+        opportunityId: ghlResult.opportunityId,
+        leadId: lead.id,
         firstName,
         lastName,
         email,

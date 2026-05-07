@@ -149,6 +149,11 @@ export class FileStore {
         clientChanged = true;
       }
 
+      if (client.slug === "multiply_talents" && client.id !== "c1a2b3c4-d5e6-7890-abcd-ef1234567890") {
+        client.id = "c1a2b3c4-d5e6-7890-abcd-ef1234567890";
+        clientChanged = true;
+      }
+
       if (!mutableClient.ghlFieldMappings) {
         mutableClient.ghlFieldMappings = defaultGhlFieldMappings;
         clientChanged = true;

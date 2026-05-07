@@ -1,11 +1,15 @@
 ﻿import { v4 as uuidv4 } from "uuid";
 import type { ClientConfig, DataStore } from "./types/domain.js";
 
+const MULTIPLY_TALENTS_ID = "c1a2b3c4-d5e6-7890-abcd-ef1234567890";
+const ROUTE_DUCT_ID = "a1b2c3d4-e5f6-7890-abcd-111111111111";
+const ROUTE_MINI_SPLIT_ID = "a1b2c3d4-e5f6-7890-abcd-222222222222";
+
 export function buildDefaultConfig(): ClientConfig {
   const now = new Date().toISOString();
 
   return {
-    id: uuidv4(),
+    id: MULTIPLY_TALENTS_ID,
     slug: "multiply_talents",
     clientName: "Multiply Talents",
     ghlSubAccountId: "fifBD0MSR8EqqjlNkFbM",
@@ -16,7 +20,7 @@ export function buildDefaultConfig(): ClientConfig {
     services: ["Duct Cleaning", "Ductless Mini-Split"],
     calendarRoutes: [
       {
-        id: uuidv4(),
+        id: ROUTE_DUCT_ID,
         label: "duct",
         ghlCalendarId: "abc123",
         services: ["Duct Cleaning"],
@@ -27,7 +31,7 @@ export function buildDefaultConfig(): ClientConfig {
         }
       },
       {
-        id: uuidv4(),
+        id: ROUTE_MINI_SPLIT_ID,
         label: "mini-split",
         ghlCalendarId: "def456",
         services: ["Ductless Mini-Split"],
