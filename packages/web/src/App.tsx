@@ -1052,7 +1052,7 @@ export default function App() {
               </div>
             </div>
             <div>
-              <p className="text-[9px] font-bold tracking-[0.14em] text-gold/60 uppercase leading-none">Multiply Talents</p>
+              <p className="text-[9px] font-bold tracking-[0.14em] text-gold/60 uppercase leading-none">UMMG</p>
               <p className="text-[13px] font-semibold text-white leading-tight mt-0.5 tracking-[-0.01em]">Voice Bot Builder</p>
             </div>
           </div>
