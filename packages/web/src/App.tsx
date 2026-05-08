@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer, useMapEvents } from "react-leaflet";
 import {
   AlertCircle, Bot, Calendar, CalendarCheck,
-  Check, CheckCircle2, ChevronDown, Copy, FileText, Map, Settings2,
+  Check, CheckCircle2, ChevronDown, Copy, FileText, Map, Menu, PanelRight, Settings2,
   Plus, Rocket, TestTube2, Trash2, Wrench, X, XCircle, Zap
 } from "lucide-react";
 import {
@@ -318,6 +318,8 @@ export default function App() {
   const [isJobTypeModalOpen, setIsJobTypeModalOpen] = useState(false);
   const [jobTypeSelected, setJobTypeSelected] = useState<string[]>([]);
   const [polygonRouteId, setPolygonRouteId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
 
   // ── Derived ──
   const selectedConfig = useMemo(() => configs.find((c) => c.id === selectedId) ?? null, [configs, selectedId]);
@@ -510,7 +512,7 @@ export default function App() {
         <Card>
           <CardHeader title="Bot Modes" description="Which automation modes this voice agent handles. Multiple can be active simultaneously." />
           <CardBody>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {([
                 { mode: "Appt Requested" as BotMode, Icon: Calendar, desc: "AI schedules appointments directly from the call" },
                 { mode: "Appt Confirmed" as BotMode, Icon: CalendarCheck, desc: "Sends confirmation after a booking is made" },
@@ -544,7 +546,7 @@ export default function App() {
         {/* Client Details */}
         <Card>
           <CardHeader title="Client Details" description="Core identity and GHL connection for this client account." />
-          <CardBody className="grid grid-cols-2 gap-4">
+          <CardBody className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label required>Client Name</Label>
               <Input value={draft.clientName} onChange={(v) => updateDraft((c) => ({ ...c, clientName: v }))} placeholder="Multiply Talents" />
@@ -629,7 +631,7 @@ export default function App() {
 
         <Card>
           <CardHeader title="Custom Questions" description="Questions the AI asks during the call." />
-          <CardBody className="grid grid-cols-2 gap-4">
+          <CardBody className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {draft.customQuestions.map((q, i) => (
               <div key={q.id}>
                 <Label>Question {i + 1}</Label>
@@ -690,7 +692,7 @@ export default function App() {
                 </div>
               } />
             <CardBody className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Calendar Label</Label>
                   <Input value={route.label} onChange={(v) => updateDraft((c) => { const n = structuredClone(c); n.calendarRoutes[ri].label = v; return n; })} />
@@ -745,7 +747,7 @@ export default function App() {
               )}
 
               {route.area.mode === "GEOFENCE_MI" && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(["centerLat","centerLng","radiusMi"] as const).map((k) => (
                     <div key={k}>
                       <Label>{k === "centerLat" ? "Center Lat" : k === "centerLng" ? "Center Lng" : "Radius (mi)"}</Label>
@@ -824,8 +826,8 @@ export default function App() {
                 <Plus size={13} /> Add Row
               </button>
             } />
-          <div className="overflow-hidden">
-            <table className="w-full text-[13px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-[13px]">
               <thead>
                 <tr className="border-b border-white/[0.07]">
                   <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{draft.connectedCrm} Stage</th>
@@ -874,7 +876,7 @@ export default function App() {
                     <p className="text-[12px] text-amber-300">{info}</p>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {fields.map((fk) => (
                     <div key={fk}>
                       <Label>{fieldLabel(fk)}</Label>
@@ -893,7 +895,7 @@ export default function App() {
         <Card>
           <CardHeader title="GHL Plugins" description="Enable or disable GHL automation plugins for this client. Changes take effect on the next routed call." />
           <CardBody>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {Array.from(new Set([...pluginDefaults, ...Object.keys(draft.pluginToggles)])).map((plugin) => {
                 const on = Boolean(draft.pluginToggles[plugin]);
                 return (
@@ -917,7 +919,7 @@ export default function App() {
         <Card>
           <CardHeader title="Auto-Populated Fields" description="Fields Retell / n8n populate automatically on each call." />
           <CardBody>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {draft.autoFields.map((f, i) => (
                 <div key={`${f.key}-${i}`} className="flex items-center justify-between px-3 py-2.5 bg-navy-800 border border-white/[0.07] rounded-lg">
                   <span className="text-[12px] text-slate-300">{f.label}</span>
@@ -1039,12 +1041,23 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "radial-gradient(ellipse 100% 50% at 20% 0%, rgba(16,28,48,0.7) 0%, transparent 55%), #080C14" }}>
 
+      {/* ── MOBILE BACKDROP ── */}
+      {(sidebarOpen || rightPanelOpen) && (
+        <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => { setSidebarOpen(false); setRightPanelOpen(false); }} />
+      )}
+
       {/* ── LEFT SIDEBAR ── */}
-      <aside className="w-60 flex-shrink-0 flex flex-col border-r border-white/[0.06]" style={{ background: "#0B1120" }}>
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-40 w-64 lg:w-60 flex-shrink-0 flex flex-col border-r border-white/[0.06] transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        style={{ background: "#0B1120" }}>
 
         {/* Logo */}
         <div className="px-5 py-6 border-b border-white/[0.06]">
           <div className="flex items-center gap-3 mb-5">
+            <button type="button" onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-1 text-slate-500 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
             <div className="relative w-9 h-9 flex-shrink-0">
               <div className="absolute inset-0 rounded-xl bg-gold/25 blur-md" />
               <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(212,160,23,0.35)]" style={{ background: "linear-gradient(135deg, #C49010, #E8B520)" }}>
@@ -1072,7 +1085,7 @@ export default function App() {
           {NAV_ITEMS.map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
-              <button key={id} type="button" onClick={() => setActiveTab(id)}
+              <button key={id} type="button" onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
                 className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 ${
                   active
                     ? "bg-gold/[0.1] text-gold ring-1 ring-inset ring-gold/20"
@@ -1110,25 +1123,30 @@ export default function App() {
       <div className="flex flex-col flex-1 min-w-0">
 
         {/* Top bar */}
-        <header className="flex-shrink-0 flex items-center justify-between h-[58px] px-6 border-b border-white/[0.06]" style={{ background: "rgba(8,12,20,0.95)", backdropFilter: "blur(16px)" }}>
+        <header className="flex-shrink-0 flex items-center justify-between h-[58px] px-4 sm:px-6 border-b border-white/[0.06]" style={{ background: "rgba(8,12,20,0.95)", backdropFilter: "blur(16px)" }}>
           <div className="flex items-center gap-3">
+            {/* Hamburger — mobile only */}
+            <button type="button" onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/[0.06]">
+              <Menu size={18} />
+            </button>
             <h1 className="text-[14px] font-semibold text-white tracking-[-0.01em]">{NAV_ITEMS.find((n) => n.id === activeTab)?.label}</h1>
             {hasUnsaved && (
-              <span className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 bg-amber-500/10 text-amber-400/90 rounded-full ring-1 ring-inset ring-amber-500/20 font-semibold tracking-wide">
+              <span className="hidden sm:flex items-center gap-1.5 text-[10px] px-2.5 py-1 bg-amber-500/10 text-amber-400/90 rounded-full ring-1 ring-inset ring-amber-500/20 font-semibold tracking-wide">
                 <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />UNSAVED
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleDelete} disabled={isSaving || configs.length <= 1}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-red-400/60 ring-1 ring-inset ring-white/[0.07] rounded-xl hover:ring-red-500/20 hover:bg-red-500/[0.07] hover:text-red-400 disabled:opacity-30 transition-all">
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-red-400/60 ring-1 ring-inset ring-white/[0.07] rounded-xl hover:ring-red-500/20 hover:bg-red-500/[0.07] hover:text-red-400 disabled:opacity-30 transition-all">
               <Trash2 size={13} /> Delete
             </button>
             <button type="button" onClick={handleClone} disabled={isSaving}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-slate-400 ring-1 ring-inset ring-white/[0.07] rounded-xl hover:ring-white/[0.12] hover:bg-white/[0.05] hover:text-white disabled:opacity-30 transition-all">
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-slate-400 ring-1 ring-inset ring-white/[0.07] rounded-xl hover:ring-white/[0.12] hover:bg-white/[0.05] hover:text-white disabled:opacity-30 transition-all">
               <Copy size={13} /> Clone
             </button>
-            <div className="w-px h-5 bg-white/[0.07] mx-1" />
+            <div className="hidden sm:block w-px h-5 bg-white/[0.07] mx-1" />
             <button type="button" onClick={handleSave} disabled={!canSave || isSaving}
               className={`flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold rounded-lg transition-all duration-150 disabled:opacity-40 ${
                 hasUnsaved
@@ -1137,6 +1155,11 @@ export default function App() {
               }`}>
               <Check size={12} /> {isSaving ? "Saving…" : "Save"}
             </button>
+            {/* Right panel toggle — hidden on xl+ */}
+            <button type="button" onClick={() => setRightPanelOpen(true)}
+              className="xl:hidden p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/[0.06]">
+              <PanelRight size={18} />
+            </button>
           </div>
         </header>
 
@@ -1144,12 +1167,54 @@ export default function App() {
         <div className="flex flex-1 overflow-hidden">
 
           {/* Scrollable form area */}
-          <main className="flex-1 overflow-y-auto p-7">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 pb-24 lg:pb-7">
             {tabContent[activeTab]()}
           </main>
 
+          {/* ── MOBILE BOTTOM NAV ── */}
+          {(() => {
+            const currentIdx = NAV_ITEMS.findIndex((n) => n.id === activeTab);
+            const prev = NAV_ITEMS[currentIdx - 1];
+            const next = NAV_ITEMS[currentIdx + 1];
+            return (
+              <div className="lg:hidden fixed bottom-0 left-0 right-0 z-20 border-t border-white/[0.06] px-4 py-3 flex items-center justify-between gap-3" style={{ background: "rgba(8,12,20,0.97)", backdropFilter: "blur(16px)" }}>
+                {/* Previous */}
+                <button type="button" onClick={() => prev && setActiveTab(prev.id)} disabled={!prev}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium text-slate-400 ring-1 ring-inset ring-white/[0.08] hover:text-white hover:ring-white/[0.15] disabled:opacity-20 transition-all">
+                  <ChevronDown size={14} className="rotate-90" />
+                  {prev?.label ?? ""}
+                </button>
+
+                {/* Step dots */}
+                <div className="flex items-center gap-1.5">
+                  {NAV_ITEMS.map((n, i) => (
+                    <button key={n.id} type="button" onClick={() => setActiveTab(n.id)}
+                      className={`rounded-full transition-all duration-200 ${i === currentIdx ? "w-5 h-2 bg-gold" : "w-2 h-2 bg-white/20 hover:bg-white/40"}`} />
+                  ))}
+                </div>
+
+                {/* Next */}
+                <button type="button" onClick={() => next && setActiveTab(next.id)} disabled={!next}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium text-white bg-gold/90 hover:bg-gold disabled:opacity-20 transition-all">
+                  {next?.label ?? ""}
+                  <ChevronDown size={14} className="-rotate-90" />
+                </button>
+              </div>
+            );
+          })()}
+
           {/* ── RIGHT SIDEBAR ── */}
-          <aside className="w-[260px] flex-shrink-0 flex flex-col border-l border-white/[0.06] overflow-y-auto" style={{ background: "#0B1120" }}>
+          <aside className={`fixed xl:relative inset-y-0 right-0 z-40 w-72 xl:w-[260px] flex-shrink-0 flex flex-col border-l border-white/[0.06] overflow-y-auto transition-transform duration-300 ease-in-out
+            ${rightPanelOpen ? "translate-x-0" : "translate-x-full xl:translate-x-0"}`}
+            style={{ background: "#0B1120" }}>
+
+            {/* Right panel close — mobile only */}
+            <div className="xl:hidden flex items-center justify-between px-5 pt-4 pb-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em]">Panel</p>
+              <button type="button" onClick={() => setRightPanelOpen(false)} className="p-1 text-slate-500 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
 
             {/* Config summary */}
             <div className="p-5 border-b border-white/[0.06]">
