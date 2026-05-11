@@ -19,8 +19,11 @@ const industryOptions = [
 ];
 const crmOptions = ["ServiceTitan", "JobNimbus", "Housecall Pro", "FieldPulse", "Custom"];
 const pluginDefaults = [
-  "New Lead", "Appt Requested", "Appt Booked", "Welcome Funnel",
-  "Callback Requested", "Estimate Sent", "Disposition", "Review", "Annual Lead", "Annual Customer"
+  "New Lead", "Contacting", "Booked", "Engaged (2-way)",
+  "Estimate Sent", "Won", "Lost", "Cancelled", "No-Show",
+  "Job Scheduled", "In Progress", "Completed",
+  "Review Requested", "Review Received",
+  "Active Customer", "Past Customer", "Dormant / Reactivation"
 ];
 const ghlFieldMappingFields = [
   ["leadSource",       "Lead Source",        "contact.lead_source"],
