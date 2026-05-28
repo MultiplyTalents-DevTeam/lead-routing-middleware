@@ -4,12 +4,14 @@ import { env } from "./config.js";
 import { logger } from "./logger.js";
 import { GhlClient } from "./services/ghlClient.js";
 import { FileStore } from "./storage/fileStore.js";
+import { SupabaseStore } from "./storage/supabaseStore.js";
+import type { Store } from "./storage/store.js";
 
 let appPromise: Promise<express.Express> | undefined;
 
 // Shared by the local Node server and the Vercel serverless adapter.
 export async function createServerApp(): Promise<express.Express> {
-  const store = new FileStore();
+  const store: Store = env.STORE_DRIVER === "supabase" ? new SupabaseStore() : new FileStore();
   await store.init();
 
   return createApp({

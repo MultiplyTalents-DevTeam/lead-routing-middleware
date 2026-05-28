@@ -5,14 +5,14 @@ import helmet from "helmet";
 import { env } from "./config.js";
 import { logger } from "./logger.js";
 import { GhlClient } from "./services/ghlClient.js";
-import { FileStore } from "./storage/fileStore.js";
+import type { Store } from "./storage/store.js";
 import { configsRouter } from "./routes/configs.js";
 import { healthRouter } from "./routes/health.js";
 import { routeDecisionRouter } from "./routes/routeDecision.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 
 export interface AppDependencies {
-  store: FileStore;
+  store: Store;
   ghlClient: GhlClient;
 }
 

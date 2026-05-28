@@ -2,10 +2,10 @@
 import { routeRequestSchema } from "../types/schemas.js";
 import { resolveClient } from "../services/clientResolver.js";
 import { resolveRoute } from "../services/routing.js";
-import type { FileStore } from "../storage/fileStore.js";
+import type { Store } from "../storage/store.js";
 import { requireAdminToken } from "./_auth.js";
 
-export function routeDecisionRouter(store: FileStore): Router {
+export function routeDecisionRouter(store: Store): Router {
   const router = Router();
 
   router.post("/route/preview", requireAdminToken, async (req, res, next) => {

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { ZodError } from "zod";
 import { requireAdminToken } from "./_auth.js";
 import { clientConfigUpsertSchema } from "../types/schemas.js";
-import type { FileStore } from "../storage/fileStore.js";
+import type { Store } from "../storage/store.js";
 
 function formatZodError(error: ZodError): string[] {
   return error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`);
@@ -17,7 +17,7 @@ function readParamId(rawId: string | string[] | undefined): string | undefined {
   return rawId;
 }
 
-export function configsRouter(store: FileStore): Router {
+export function configsRouter(store: Store): Router {
   const router = Router();
 
   router.get("/configs", requireAdminToken, async (_req, res, next) => {

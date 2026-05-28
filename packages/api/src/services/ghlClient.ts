@@ -29,10 +29,34 @@ interface StageUpdateInput {
   payload: Record<string, unknown>;
 }
 
+interface AppointmentCreateInput {
+  subAccountId: string;
+  calendarId: string;
+  contactId: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+  description?: string;
+  assignedUserId?: string;
+  meetingLocationType?: "custom" | "zoom" | "gmeet" | "phone" | "address" | "ms_teams" | "google";
+}
+
 export interface GhlActionResult {
   mode: "live" | "mock";
   contactId: string;
   opportunityId: string;
+  details: Record<string, unknown>;
+}
+
+export interface GhlAppointmentResult {
+  mode: "live" | "mock";
+  appointmentId: string;
+  details: Record<string, unknown>;
+}
+
+export interface GhlTagResult {
+  mode: "live" | "mock";
+  tags: string[];
   details: Record<string, unknown>;
 }
 
@@ -52,6 +76,20 @@ interface GhlOpportunityResponse {
   };
   id?: string;
   opportunityId?: string;
+}
+
+interface GhlAppointmentResponse {
+  appointment?: {
+    id?: string;
+    appointmentId?: string;
+  };
+  event?: {
+    id?: string;
+    eventId?: string;
+  };
+  id?: string;
+  appointmentId?: string;
+  eventId?: string;
 }
 
 interface GhlCustomField {
@@ -136,6 +174,19 @@ function getContactId(response: GhlContactResponse): string {
 
 function getOpportunityId(response: GhlOpportunityResponse): string {
   return String(response.opportunity?.id ?? response.opportunity?.opportunityId ?? response.opportunityId ?? response.id ?? uuidv4());
+}
+
+function getAppointmentId(response: GhlAppointmentResponse): string {
+  return String(
+    response.appointment?.id ??
+      response.appointment?.appointmentId ??
+      response.event?.id ??
+      response.event?.eventId ??
+      response.appointmentId ??
+      response.eventId ??
+      response.id ??
+      uuidv4()
+  );
 }
 
 export class GhlClient {
@@ -247,6 +298,77 @@ export class GhlClient {
       mode: "live",
       contactId: String(response.contactId ?? input.externalContactId ?? uuidv4()),
       opportunityId: String(response.opportunityId ?? response.id ?? uuidv4()),
+      details: response
+    };
+  }
+
+  async createAppointment(input: AppointmentCreateInput): Promise<GhlAppointmentResult> {
+    if (!this.liveEnabled) {
+      return {
+        mode: "mock",
+        appointmentId: `mock_appt_${uuidv4()}`,
+        details: {
+          subAccountId: input.subAccountId,
+          calendarId: input.calendarId,
+          contactId: input.contactId,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          title: input.title
+        }
+      };
+    }
+
+    const endpoint = `${env.GHL_BASE_URL}/calendars/events/appointments`;
+    const payload = compactPayload({
+      locationId: input.subAccountId,
+      calendarId: input.calendarId,
+      contactId: input.contactId,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      title: input.title,
+      appointmentStatus: "confirmed",
+      meetingLocationType: input.meetingLocationType ?? "phone",
+      overrideLocationConfig: true,
+      toNotify: true,
+      ignoreDateRange: false,
+      ignoreFreeSlotValidation: false,
+      assignedUserId: input.assignedUserId,
+      description: input.description
+    });
+
+    const response = (await this.requestWithRetry(endpoint, payload)) as GhlAppointmentResponse;
+
+    return {
+      mode: "live",
+      appointmentId: getAppointmentId(response),
+      details: response as unknown as Record<string, unknown>
+    };
+  }
+
+  async addTags(contactId: string, tags: string[]): Promise<GhlTagResult> {
+    const cleanTags = [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
+    if (cleanTags.length === 0) {
+      return {
+        mode: this.liveEnabled ? "live" : "mock",
+        tags: [],
+        details: { skipped: true, reason: "No tags supplied" }
+      };
+    }
+
+    if (!this.liveEnabled) {
+      return {
+        mode: "mock",
+        tags: cleanTags,
+        details: { contactId, tags: cleanTags }
+      };
+    }
+
+    const endpoint = `${env.GHL_BASE_URL}/contacts/${contactId}/tags`;
+    const response = await this.requestWithRetry(endpoint, { tags: cleanTags });
+
+    return {
+      mode: "live",
+      tags: Array.isArray(response.tags) ? response.tags.map(String) : cleanTags,
       details: response
     };
   }

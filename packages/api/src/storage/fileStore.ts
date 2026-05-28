@@ -2,8 +2,9 @@
 import { dirname, resolve } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "../config.js";
-import { buildDefaultStore } from "../seed.js";
+import { buildDefaultStore, buildDemoConfigs } from "../seed.js";
 import type { ClientConfig, DataStore, EventLog, GhlFieldMappings, LeadRecord } from "../types/domain.js";
+import type { Store } from "./store.js";
 
 const defaultGhlFieldMappings: GhlFieldMappings = {
   leadSource: "krNKmxYIrhzybJaKQNTt",
@@ -17,7 +18,13 @@ const defaultGhlFieldMappings: GhlFieldMappings = {
   lastJobType: "wydMfnRi73M1SmYMD2Qh"
 };
 
-export class FileStore {
+const defaultPluginToggles: Record<string, boolean> = {
+  "Appt Requested": true,
+  "Appt Confirmed": true,
+  "Estimate Requested": true
+};
+
+export class FileStore implements Store {
   private readonly filePath: string;
   private writeLock: Promise<void> = Promise.resolve();
 
@@ -129,6 +136,7 @@ export class FileStore {
 
   private migrateStore(store: DataStore): boolean {
     let changed = false;
+    const seededClients = buildDefaultStore().clients;
 
     for (const client of store.clients) {
       let clientChanged = false;
@@ -159,9 +167,34 @@ export class FileStore {
         clientChanged = true;
       }
 
+      for (const [key, enabled] of Object.entries(defaultPluginToggles)) {
+        if (client.pluginToggles[key] === undefined) {
+          client.pluginToggles[key] = enabled;
+          clientChanged = true;
+        }
+      }
+
+      const seededClient = seededClients.find((seed) => seed.slug === client.slug);
+      if (seededClient) {
+        for (const seededRoute of seededClient.calendarRoutes) {
+          const route = client.calendarRoutes.find((entry) => entry.label === seededRoute.label);
+          if (route && route.ghlCalendarId !== seededRoute.ghlCalendarId) {
+            route.ghlCalendarId = seededRoute.ghlCalendarId;
+            clientChanged = true;
+          }
+        }
+      }
+
       if (clientChanged) {
         changed = true;
         client.updatedAt = new Date().toISOString();
+      }
+    }
+
+    for (const demoClient of buildDemoConfigs()) {
+      if (!store.clients.some((client) => client.slug === demoClient.slug)) {
+        store.clients.push(demoClient);
+        changed = true;
       }
     }
 

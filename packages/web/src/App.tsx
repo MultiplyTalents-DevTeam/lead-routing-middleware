@@ -150,6 +150,40 @@ function timeAgo(iso: string): string {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+function eventService(ev: EventLog): string | undefined {
+  const payload = recordValue(ev.payload);
+  const result = recordValue(ev.result);
+  const call = recordValue(payload?.call);
+  const analysis = recordValue(recordValue(call?.call_analysis)?.custom_analysis_data);
+  const genericService = payload?.serviceRequested;
+  const retellService = analysis?.service_requested ?? analysis?.serviceRequested ?? analysis?.service;
+  const routeService = recordValue(recordValue(result?.routeDecision)?.calendar)?.services;
+
+  if (typeof genericService === "string") return genericService;
+  if (typeof retellService === "string") return retellService;
+  if (Array.isArray(routeService) && typeof routeService[0] === "string") return routeService[0];
+  return undefined;
+}
+function eventAppointment(ev: EventLog): { status?: string; label?: string } {
+  const appointment = recordValue(recordValue(ev.result)?.appointment);
+  if (!appointment) return {};
+  const status = typeof appointment?.status === "string" ? appointment.status : undefined;
+  if (!status) return {};
+
+  if (status === "booked") {
+    const start = typeof appointment.startTime === "string" ? new Date(appointment.startTime) : undefined;
+    return {
+      status,
+      label: start && !Number.isNaN(start.getTime()) ? `Booked ${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Booked"
+    };
+  }
+
+  const reason = typeof appointment.reason === "string" ? appointment.reason : "Skipped";
+  return { status, label: reason };
+}
 
 // ─── Design-system primitives ─────────────────────────────────────────────────
 
@@ -280,6 +314,88 @@ function Toast({ message, type, onDismiss }: { message: string; type: "success" 
       <button type="button" onClick={onDismiss} className="flex-shrink-0 opacity-40 hover:opacity-90 transition-opacity p-0.5 rounded-full hover:bg-white/10">
         <X size={12} />
       </button>
+    </div>
+  );
+}
+function ClientSelector({ configs, selectedId, onSelect }: {
+  configs: ClientConfig[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = configs.find((cfg) => cfg.id === selectedId) ?? configs[0];
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`w-full min-h-11 flex items-center gap-2 bg-white/[0.05] ring-1 ring-inset rounded-xl pl-3 pr-2.5 py-2.5 text-left cursor-pointer focus:outline-none transition-all ${
+          open ? "ring-gold/55 bg-white/[0.07]" : "ring-white/[0.08] hover:bg-white/[0.07] hover:ring-white/[0.14]"
+        }`}
+      >
+        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-100">
+          {selected?.clientName ?? "Select client"}
+        </span>
+        <ChevronDown size={12} className={`flex-shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/[0.09] bg-[#111827] shadow-2xl shadow-black/45"
+        >
+          <div className="max-h-56 overflow-y-auto py-1">
+            {configs.map((cfg) => {
+              const active = cfg.id === selectedId;
+              return (
+                <button
+                  key={cfg.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onSelect(cfg.id);
+                    setOpen(false);
+                  }}
+                  className={`w-full min-h-10 flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                    active
+                      ? "bg-gold text-navy-950"
+                      : "text-slate-300 hover:bg-white/[0.07] hover:text-white"
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{cfg.clientName}</span>
+                  {active && <Check size={13} className="flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1074,13 +1190,7 @@ export default function App() {
           </div>
 
           {/* Client selector */}
-          <div className="relative">
-            <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] rounded-xl pl-3 pr-8 py-2.5 text-[12px] text-slate-300 appearance-none cursor-pointer focus:ring-gold/40 focus:outline-none hover:bg-white/[0.07] transition-all">
-              {configs.map((cfg) => <option key={cfg.id} value={cfg.id}>{cfg.clientName}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
-          </div>
+          <ClientSelector configs={configs} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
 
         {/* Nav */}
@@ -1264,14 +1374,32 @@ export default function App() {
                   </div>
                 )
                 : (
-                  <div className="space-y-1.5">
-                    {events.map((ev) => (
-                      <div key={ev.id} className="flex items-center gap-2 px-3 py-2.5 bg-white/[0.025] rounded-xl ring-1 ring-inset ring-white/[0.04] hover:bg-white/[0.04] transition-colors">
-                        <TypeBadge type={ev.eventType} />
-                        <StatusBadge status={ev.status} />
-                        <span className="text-[9px] text-slate-700 ml-auto flex-shrink-0 font-medium">{timeAgo(ev.receivedAt)}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {events.map((ev) => {
+                      const client = configs.find((cfg) => cfg.id === ev.clientId);
+                      const service = eventService(ev);
+                      const appointment = eventAppointment(ev);
+                      return (
+                        <div key={ev.id} className="px-3 py-2.5 bg-white/[0.025] rounded-xl ring-1 ring-inset ring-white/[0.04] hover:bg-white/[0.04] transition-colors">
+                          <div className="flex items-center gap-2">
+                            <TypeBadge type={ev.eventType} />
+                            <StatusBadge status={ev.status} />
+                            <span className="text-[9px] text-slate-700 ml-auto flex-shrink-0 font-medium">{timeAgo(ev.receivedAt)}</span>
+                          </div>
+                          <div className="mt-2 min-w-0">
+                            <p className="truncate text-[11px] font-medium text-slate-300">{client?.clientName ?? "Unknown client"}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-slate-600">
+                              {service ?? "Service not captured"}
+                              {appointment.status && (
+                                <span className={appointment.status === "booked" ? "text-emerald-400" : "text-amber-400"}>
+                                  {` · ${appointment.label}`}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
             </div>

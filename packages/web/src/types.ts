@@ -115,4 +115,7 @@ export interface EventLog {
   eventType: "lead" | "status" | "estimate" | "job";
   status: "processed" | "duplicate" | "rejected" | "failed";
   receivedAt: string;
+  payload?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  errorMessage?: string;
 }
