@@ -255,20 +255,38 @@ export class GhlClient {
       monetaryValue: input.monetaryValue
     });
 
-    const opportunityResponse = (await this.requestWithRetry(
-      opportunityEndpoint,
-      opportunityPayload
-    )) as GhlOpportunityResponse;
+    try {
+      const opportunityResponse = (await this.requestWithRetry(
+        opportunityEndpoint,
+        opportunityPayload
+      )) as GhlOpportunityResponse;
 
-    return {
-      mode: "live",
-      contactId,
-      opportunityId: getOpportunityId(opportunityResponse),
-      details: {
-        contact: contactResponse,
-        opportunity: opportunityResponse
+      return {
+        mode: "live",
+        contactId,
+        opportunityId: getOpportunityId(opportunityResponse),
+        details: {
+          contact: contactResponse,
+          opportunity: opportunityResponse
+        }
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes("duplicate opportunity")) {
+        logger.warn({ subAccountId: input.subAccountId, contactId }, "Skipping duplicate opportunity — contact already has one in this pipeline");
+        return {
+          mode: "live",
+          contactId,
+          opportunityId: "",
+          details: {
+            contact: contactResponse,
+            opportunity: null,
+            skipped: "duplicate_opportunity"
+          }
+        };
       }
-    };
+      throw error;
+    }
   }
 
   async updateStage(input: StageUpdateInput): Promise<GhlActionResult> {
