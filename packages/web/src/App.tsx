@@ -458,14 +458,14 @@ export default function App() {
 
   // ── Effects ──
   useEffect(() => {
-    function sendHeight() {
-      window.parent?.postMessage({ type: "MT_MIDDLEWARE_HEIGHT", height: document.documentElement.scrollHeight }, "*");
-    }
-    sendHeight();
-    window.addEventListener("resize", sendHeight);
-    const t = setInterval(sendHeight, 800);
-    return () => { window.removeEventListener("resize", sendHeight); clearInterval(t); };
-  }, [draft, events, routeResult, isJobTypeModalOpen, polygonRouteId]);
+    // Fixed per-state heights, not a scrollHeight measurement: this app shell is a
+    // bounded viewport (h-screen) with internally scrolling panels, so measuring
+    // document.documentElement.scrollHeight just reports back the iframe's own
+    // current height — the parent grows the iframe, which grows the reported
+    // height, which grows the iframe again, forever.
+    const height = isLoading ? 320 : !draft ? 320 : 900;
+    window.parent?.postMessage({ type: "MT_MIDDLEWARE_HEIGHT", height }, "*");
+  }, [isLoading, draft]);
 
   useEffect(() => {
     async function load() {
