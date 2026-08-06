@@ -4,7 +4,12 @@ import type express from "express";
 let appPromise: Promise<express.Express> | undefined;
 
 async function getApp(): Promise<express.Express> {
-  appPromise ??= import("../packages/api/dist/server.js").then((module) => module.getServerApp());
+  appPromise ??= import("../packages/api/dist/server.js")
+    .then((module) => module.getServerApp())
+    .catch((error: unknown) => {
+      appPromise = undefined;
+      throw error;
+    });
   return appPromise;
 }
 

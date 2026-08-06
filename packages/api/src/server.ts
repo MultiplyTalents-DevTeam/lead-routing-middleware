@@ -21,7 +21,10 @@ export async function createServerApp(): Promise<express.Express> {
 }
 
 export function getServerApp(): Promise<express.Express> {
-  appPromise ??= createServerApp();
+  appPromise ??= createServerApp().catch((error: unknown) => {
+    appPromise = undefined;
+    throw error;
+  });
   return appPromise;
 }
 
